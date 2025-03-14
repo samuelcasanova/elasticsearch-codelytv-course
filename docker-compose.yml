@@ -18,7 +18,7 @@ services:
     depends_on: ['elasticsearch']
     volumes:
       - './etc/logstash/pipeline:/usr/share/logstash/pipeline'
-      - './var/logs:/logs'
+      - './.data/app/var/logs:/logs'
 
   filebeat:
     image: docker.elastic.co/beats/filebeat:6.4.2
@@ -35,3 +35,11 @@ services:
     ports: ['5601:5601']
     depends_on:
       - 'elasticsearch'
+
+  app:
+    image: node:22-alpine
+    user: root
+    volumes:
+      - '.:/app'
+    working_dir: /app
+    command: ["node", "index.js"]
