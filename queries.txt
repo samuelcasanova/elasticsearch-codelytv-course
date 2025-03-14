@@ -1,0 +1,152 @@
+From codely course:
+
+DSL (queries)
+
+La query más simple que podemos escribir en DSL es utilizando match_all y match_none:
+
+
+GET /_search 
+{
+	"query": {
+		"match_all": {}
+	}
+}
+
+match es más específico. Buscará términos dentro del atributo que pasemos como parámetro. Por defecto Elasticsearch crea tokens de las palabras contenidas dentro de un campo de texto, por eso no importa el orden. A un búsqueda inexacta se la denomina fuzzy search. Por ejemplo:
+
+
+GET codelytv/_search 
+{
+	"query": {
+		"match": {
+			"message": "primer mi Log"
+		}
+	}
+}
+
+Buscará dentro del atributo message aquellos Documentos que contengan alguna de esas palabras sin importar el orden y sin importar si todas están incluidas en el texto del atributo. Diferente es match_phrase que requerirá que el orden sea el correcto y que todas las palabras incluidas en la query estén presente en algún Documento dentro del atributo.
+
+
+Podemos buscar en varios campos al mismo tiempo utilizando multi_match tal que así:
+
+
+GET codelytv/_search 
+{
+	"query": {
+		"multi_match": {
+			"query": "codelytv",
+			"fields": ["message", "context.app_name"]
+		}
+	}
+}
+
+A este tipo de búsquedas se las denomina full text queries porque analizan la query antes de ejecutarla. Existe otro tipo de búsqueda llamado term que no lo hace. Buscará los términos tal y como se especifican en la query. Por ejemplo:
+
+
+GET codelytv/_search 
+{
+	"query": {
+		"term": {
+			"context.app_name": "codelytv"
+		}
+	}
+}
+
+No encontrará si buscamos codely o codelyt si no existe tal cual en el atributo app_name de alguno de los Documentos almacenados.
+
+
+Existen muchísimos más tipos de queries que podemos utilizar: prefijos, wildcards, rangos, regex, por types, por Ids, etc… no vamos a ver cada una de ellas pero puedes echar un vistazo a la documentación para echar un vistazo a todas las posibilidades.
+
+
+Se puede también hacer composición de queries utilizando una query de tipo bool. Los documentos matcheados estarán relacionados con la combinación de una o más queries. Los tipos permitidos dentro de una query bool son:
+
+
+must: el valor de esta cláusula deberá aparecer en los documentos buscados. El contrario de must es must_not.
+filter: el valor de esta cláusula también deberá aparecer en los documentos, pero al contrario que must, no influye en la puntuación de los resultados (es decir, en el orden el que se presentan)
+should: si hay varias cláusulas should y no hay must o filter entonces los Documentos devueltos tendrán que match con alguna de esas cláusulas. Si existe must o filter, entonces tienen preferencia.
+
+Veamos un ejemplo sencillo:
+
+
+GET codelytv/_search 
+{
+	"query": {
+		"bool": {
+			"must": {
+				"match": {
+					"context.app_name": "codelytv"
+				}
+			},
+			"must_not": {
+				"match": {
+					"context.otro_parametro": "esto me lo ignoras"
+				}
+			}
+		}
+	}
+}
+
+Vamos a parar aquí, pero podríamos seguir con infinidad de cláusulas y tipos de queries más que de seguro cubrirán todas tus necesidades. Echa un vistazo a la documentación para saber más.
+
+
+DSL (aggregations)
+
+Las agregaciones son una potente herramienta de Elasticsearch que nos permite crear información analítica a partir de la información contenida en los Documentos. Existen diferentes tipos de agregaciones pero nos centraremos en dos tipos
+
+
+bucket: mediante las cuales obtendremos una separación lógica determinada por un criterio determinado. Es así como una forma de separar información analítica sobre los Documentos haciendo que cada Documento involucrado “caiga” en uno de eso buckets .
+metric: Computan métricas de un conjunto de documentos como la media, los contadores, las sumas, etc…
+
+Empezaremos por las métricas, por ejemplo el average:
+
+
+GET codelytv/_search?size=0
+{
+	"aggs": {
+		"mi_avg": {
+			"avg": {
+				"field": "level"
+			}
+		}
+	}
+}
+
+o el max:
+
+
+GET codelytv/_search 
+{
+	"aggs": {
+		"mi_max": {
+			"max": {
+				"field": "level"
+			}
+		}
+	}
+}
+
+Ahora veamos un ejemplo de agregación tipo bucket:
+
+
+GET codelytv/_search 
+{
+	"aggs": {
+		"mis_buckets": {
+			"terms": {
+				"field": "context.app_name"
+			}
+		}
+	}
+}
+
+Mostrará una lista de buckets con un contador del número de Documentos que encajan en cada de uno de ellos. En nuestro ejemplo el resultado sería algo así como:
+
+
+"buckets": [
+  { 
+	  "key": "codelytv",
+		"doc_count": 1
+	}
+]
+
+Si hubiese más Documentos con diferente "app_name" veríamos más buckets y su "doc_count" correspondiente.
